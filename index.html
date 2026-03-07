@@ -95,6 +95,16 @@
         font-size: 11px;
         color: rgba(255,255,255,0.6);
       }
+      #cube-net {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(8px);
+        border-radius: 8px;
+        padding: 10px;
+        z-index: 10;
+      }
       #loading-indicator {
         position: absolute;
         top: 16px;
@@ -112,6 +122,7 @@
   </head>
   <body>
     <canvas id="renderCanvas"></canvas>
+    <div id="cube-net"></div>
     <div id="loading-indicator">Initializing solver...</div>
     <div id="ui-overlay">
       <button id="btn-scramble">Scramble</button>

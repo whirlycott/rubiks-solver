@@ -284,6 +284,15 @@ export function parseMoveString(moveString: string): MoveId[] {
 }
 
 /**
+ * Return the inverse of a move (e.g. R → R', R' → R, R2 → R2).
+ */
+export function invertMove(move: MoveId): MoveId {
+  if (move.endsWith('2')) return move;
+  if (move.endsWith("'")) return move.slice(0, -1) as MoveId;
+  return (move + "'") as MoveId;
+}
+
+/**
  * All face move names (for scramble generation).
  */
 export const FACE_NAMES = ['U', 'R', 'F', 'D', 'L', 'B'] as const;

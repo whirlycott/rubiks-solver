@@ -9,12 +9,13 @@ import {
 import { CubeState } from './cube/CubeState.js';
 import { CubeRenderer } from './cube/CubeRenderer.js';
 import { CubeAnimator } from './cube/CubeAnimator.js';
-import { FACE_NAMES, MOVE_SUFFIXES, type MoveId } from './cube/moves.js';
+import { FACE_NAMES, MOVE_SUFFIXES, invertMove, type MoveId } from './cube/moves.js';
 import { initSolver, isSolverReady } from './solver/SolverService.js';
 import { solve } from './solver/CFOPSolver.js';
 import type { SolveMethod, SolveResult, SolveStep } from './solver/types.js';
 import { Controls } from './ui/Controls.js';
 import { MoveDisplay } from './ui/MoveDisplay.js';
+import { CubeNetDisplay } from './ui/CubeNetDisplay.js';
 
 // --- State ---
 let cubeState = new CubeState();
@@ -46,7 +47,10 @@ light2.intensity = 0.4;
 const renderer = new CubeRenderer(scene);
 const animator = new CubeAnimator(scene, renderer);
 
+const cubeNet = new CubeNetDisplay();
+
 renderer.syncFromState(cubeState);
+cubeNet.syncFromState(cubeState);
 
 engine.runRenderLoop(() => scene.render());
 window.addEventListener('resize', () => engine.resize());
@@ -84,6 +88,7 @@ async function doScramble(): Promise<void> {
   // Reset to solved
   cubeState = new CubeState();
   renderer.syncFromState(cubeState);
+  cubeNet.syncFromState(cubeState);
 
   // Generate and animate scramble
   scrambleMoves = generateScramble();
@@ -93,6 +98,7 @@ async function doScramble(): Promise<void> {
     moveDisplay.setCounter(idx + 1, scrambleMoves.length);
   });
 
+  cubeNet.syncFromState(cubeState);
   moveDisplay.setStage('Scrambled');
   moveDisplay.setMove('');
   moveDisplay.setCounter(0, 0);
@@ -108,7 +114,10 @@ async function doSolve(method: SolveMethod): Promise<void> {
   moveDisplay.clear();
 
   try {
+    console.log(`Scramble: ${scrambleMoves.join(' ')}`);
+    console.log(`State before solve: ${cubeState.toFaceletString()}`);
     solveResult = await solve(cubeState.clone(), scrambleMoves, method);
+    console.log(`Method: ${method}, Solution: ${solveResult.allMoves.join(' ')} (${solveResult.allMoves.length} moves)`);
     currentMoveIndex = 0;
 
     if (solveResult.allMoves.length === 0) {
@@ -121,6 +130,7 @@ async function doSolve(method: SolveMethod): Promise<void> {
     // Auto-play the solution
     isPlaying = true;
     controls.setPlayPauseIcon(true);
+    controls.setPlayPauseEnabled(true);
     await playSolution();
   } catch (err) {
     console.error('Solve error:', err);
@@ -148,7 +158,10 @@ async function playSolution(): Promise<void> {
         moveDisplay.setMove(step.moves[i]);
         moveDisplay.setCounter(globalIdx + 1, solveResult.allMoves.length);
         await animator.animateMove(step.moves[i], cubeState, getMoveDuration());
+        cubeNet.syncFromState(cubeState);
+        console.log(`[${step.label}] ${globalIdx + 1}/${solveResult.allMoves.length} ${step.moves[i]} → ${cubeState.toFaceletString()}`);
         currentMoveIndex = globalIdx + 1;
+        if (signal.aborted) { isPlaying = false; controls.setPlayPauseIcon(false); return; }
       }
       globalIdx++;
     }
@@ -156,7 +169,8 @@ async function playSolution(): Promise<void> {
 
   isPlaying = false;
   controls.setPlayPauseIcon(false);
-  moveDisplay.setStage('Solved');
+  const lastStep = solveResult.steps[solveResult.steps.length - 1];
+  moveDisplay.setStage(`${lastStep?.label ?? ''} complete`);
   moveDisplay.setMove('');
 }
 
@@ -166,7 +180,9 @@ function stopPlayback(): void {
     playAbortController = null;
   }
   isPlaying = false;
+  isBusy = false;
   controls.setPlayPauseIcon(false);
+  controls.setEnabled(true);
 }
 
 // --- Step controls ---
@@ -181,10 +197,12 @@ async function stepForward(): Promise<void> {
   moveDisplay.setMove(move);
   moveDisplay.setCounter(currentMoveIndex + 1, solveResult.allMoves.length);
   await animator.animateMove(move, cubeState, getMoveDuration());
+  cubeNet.syncFromState(cubeState);
   currentMoveIndex++;
 
   if (currentMoveIndex >= solveResult.allMoves.length) {
-    moveDisplay.setStage('Solved');
+    const lastStep = solveResult.steps[solveResult.steps.length - 1];
+    moveDisplay.setStage(`${lastStep?.label ?? ''} complete`);
     moveDisplay.setMove('');
   }
 
@@ -202,24 +220,17 @@ function findStepForIndex(globalIdx: number): SolveStep | null {
   return null;
 }
 
-// Step back is complex (would need inverse moves and re-rendering).
-// For simplicity, we reset and replay up to the previous move.
 async function stepBack(): Promise<void> {
   if (isBusy || !solveResult || currentMoveIndex <= 0) return;
   isBusy = true;
   controls.setEnabled(false);
 
-  // Reset to scrambled state
-  const targetIndex = currentMoveIndex - 1;
-  cubeState = new CubeState();
-  cubeState = cubeState.applyMoves(scrambleMoves);
-
-  // Apply moves up to targetIndex (without animation)
-  for (let i = 0; i < targetIndex; i++) {
-    cubeState.applyMoveInPlace(solveResult.allMoves[i]);
-  }
-  renderer.syncFromState(cubeState);
-  currentMoveIndex = targetIndex;
+  // Animate the inverse of the last applied move
+  const lastMove = solveResult.allMoves[currentMoveIndex - 1];
+  const inverse = invertMove(lastMove);
+  await animator.animateMove(inverse, cubeState, getMoveDuration());
+  cubeNet.syncFromState(cubeState);
+  currentMoveIndex--;
 
   const step = findStepForIndex(currentMoveIndex);
   moveDisplay.setStage(step?.label ?? '');
@@ -239,6 +250,7 @@ async function togglePlayPause(): Promise<void> {
     controls.setPlayPauseIcon(true);
     isBusy = true;
     controls.setEnabled(false);
+    controls.setPlayPauseEnabled(true);
     await playSolution();
     isBusy = false;
     controls.setEnabled(true);
@@ -253,6 +265,7 @@ function doReset(): void {
   solveResult = null;
   currentMoveIndex = 0;
   renderer.syncFromState(cubeState);
+  cubeNet.syncFromState(cubeState);
   moveDisplay.clear();
 }
 

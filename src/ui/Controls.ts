@@ -54,6 +54,10 @@ export class Controls {
     this.btnStepForward.disabled = !enabled;
   }
 
+  setPlayPauseEnabled(enabled: boolean): void {
+    this.btnPlayPause.disabled = !enabled;
+  }
+
   setSolveEnabled(enabled: boolean): void {
     this.btnSolve.disabled = !enabled;
   }
