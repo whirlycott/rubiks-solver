@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rubik's Cube Solver</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+      #renderCanvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        outline: none;
+        touch-action: none;
+      }
+      #ui-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 12px 16px;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        font-family: system-ui, -apple-system, sans-serif;
+        color: #fff;
+        z-index: 10;
+      }
+      #ui-overlay button {
+        padding: 8px 16px;
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 6px;
+        background: rgba(255,255,255,0.1);
+        color: #fff;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background 0.15s;
+      }
+      #ui-overlay button:hover:not(:disabled) {
+        background: rgba(255,255,255,0.2);
+      }
+      #ui-overlay button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      #ui-overlay select {
+        padding: 8px 12px;
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 6px;
+        background: rgba(255,255,255,0.1);
+        color: #fff;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      #ui-overlay select option {
+        background: #1a1a2e;
+        color: #fff;
+      }
+      .playback-controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .playback-controls button {
+        padding: 8px 12px;
+        font-size: 16px;
+      }
+      #speed-slider {
+        width: 80px;
+        accent-color: #4ecdc4;
+      }
+      #move-display {
+        margin-left: auto;
+        text-align: right;
+        font-size: 14px;
+        min-width: 120px;
+      }
+      #move-display .stage-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #4ecdc4;
+        margin-bottom: 2px;
+      }
+      #move-display .move-text {
+        font-family: 'SF Mono', 'Consolas', monospace;
+        font-size: 18px;
+        font-weight: bold;
+      }
+      #move-display .move-counter {
+        font-size: 11px;
+        color: rgba(255,255,255,0.6);
+      }
+      #cube-net {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(8px);
+        border-radius: 8px;
+        padding: 10px;
+        z-index: 10;
+      }
+      #loading-indicator {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        padding: 8px 16px;
+        background: rgba(0,0,0,0.7);
+        border-radius: 6px;
+        color: #4ecdc4;
+        font-family: system-ui, sans-serif;
+        font-size: 13px;
+        z-index: 10;
+        display: none;
+      }
+    </style>
+    <script type="module" crossorigin src="/rubiks-solver/assets/index-C3Sc21-X.js"></script>
+  </head>
+  <body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="cube-net"></div>
+    <div id="loading-indicator">Initializing solver...</div>
+    <div id="ui-overlay">
+      <button id="btn-scramble">Scramble</button>
+      <select id="select-method">
+        <option value="full">Full CFOP</option>
+        <option value="cross">Cross Only</option>
+        <option value="f2l">F2L Only</option>
+        <option value="oll">OLL Only</option>
+        <option value="pll">PLL Only</option>
+      </select>
+      <button id="btn-solve">Solve</button>
+      <button id="btn-reset">Reset</button>
+      <div class="playback-controls">
+        <button id="btn-step-back" title="Previous move">|&#9664;</button>
+        <button id="btn-play-pause" title="Play/Pause">&#9654;</button>
+        <button id="btn-step-forward" title="Next move">&#9654;|</button>
+        <input type="range" id="speed-slider" min="1" max="10" value="5" title="Speed">
+      </div>
+      <div id="move-display">
+        <div class="stage-label" id="stage-label"></div>
+        <div class="move-text" id="move-text"></div>
+        <div class="move-counter" id="move-counter"></div>
+      </div>
+    </div>
+  </body>
+</html>
